@@ -3,12 +3,13 @@
     // variable ===============================================================
     let gl, run, mat4, count, nowTime, framebuffer;
     let canvas, canvasWidth, canvasHeight;
+    let speed = Math.PI * 0.5;
 
     // shader
     let scenePrg, graphPrg;
 
     // constant
-    const RESOLUTION = 512;
+    const RESOLUTION = 2048;
     const SPLIT = 4;
     const CYLINDERS = SPLIT * SPLIT;
     const CYLINDER_SCALE = 2.0;
@@ -56,8 +57,10 @@
         // element
         let wrapper = new gl3.Gui.Wrapper();
         document.body.appendChild(wrapper.getElement());
-        let slider = new gl3.Gui.Slider('test', 50, 0, 100, 1);
-        slider.add('input', (eve, self) => {console.log(self.getValue());});
+        let slider = new gl3.Gui.Slider('test', 5, 0, 100, 1);
+        slider.add('input', (eve, self) => {
+            speed = self.getValue() * Math.PI * 0.1;
+        });
         wrapper.append(slider.getElement());
 
         shaderLoader();
@@ -183,8 +186,8 @@
 
         // variables
         let beginTime = Date.now();
-        let nowTime = 0;
-        let cameraPosition = [0.0, 0.0, 5.0];
+        let nowTime = 0.0;
+        let cameraPosition = [0.0, 0.0, 4.0];
         let centerPoint    = [0.0, 0.0, 0.0];
         let upDirection    = [0.0, 1.0, 0.0];
 
@@ -208,8 +211,8 @@
         // rendering
         render();
         function render(){
-            nowTime = Date.now() - beginTime;
-            nowTime /= 1000;
+            let time = Date.now() - beginTime;
+            nowTime = time / 1000;
 
             // animation
             if(run){requestAnimationFrame(render);}
@@ -242,8 +245,9 @@
             gl3.sceneClear([0.1, 0.1, 0.1, 1.0], 1.0);
 
             // model and draw
+            let sp = (Math.PI * 2.0) / CYLINDERS;
             mat4.identity(mMatrix);
-            mat4.rotate(mMatrix, nowTime, [0.0, 0.1, 0.0], mMatrix);
+            mat4.rotate(mMatrix, nowTime * speed, [0.0, 0.1, 0.0], mMatrix);
             mat4.multiply(vpMatrix, mMatrix, mvpMatrix);
             scenePrg.pushShader([mvpMatrix, 0]);
             gl3.drawElements(gl.TRIANGLES, cylinderIndex.length);
