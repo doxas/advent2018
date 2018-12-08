@@ -10,6 +10,8 @@
     // constant
     const RESOLUTION = 512;
     const SPLIT = 4;
+    const CYLINDERS = SPLIT * SPLIT;
+    const CYLINDER_SCALE = 2.0;
 
     // onload =================================================================
     window.addEventListener('load', () => {
@@ -113,6 +115,50 @@
         ];
         let planeIBO = gl3.createIbo(planeIndex);
 
+        // plane cylinder
+        let cylinderPosition = [];
+        let cylinderTexCoord = [];
+        let cylinderIndex = [];
+        {
+            let rad = Math.PI * 2.0 / CYLINDERS;
+            let halfRad = rad / 2.0;
+            let top = Math.sin(halfRad) * CYLINDER_SCALE;
+            let bottom = -top;
+            let index = 0;
+            for(let i = 0; i < SPLIT; ++i){
+                for(let j = 0; j < SPLIT; ++j){
+                    let k = i * SPLIT + j;
+                    let c0 = Math.cos(-halfRad + k * rad) * CYLINDER_SCALE;
+                    let c1 = Math.cos(-halfRad + (k + 1) * rad) * CYLINDER_SCALE;
+                    let s0 = Math.sin(-halfRad + k * rad) * CYLINDER_SCALE;
+                    let s1 = Math.sin(-halfRad + (k + 1) * rad) * CYLINDER_SCALE;
+                    cylinderPosition.push(
+                        c0, top, s0,
+                        c1, top, s1,
+                        c0, bottom, s0,
+                        c1, bottom, s1
+                    );
+                    let u0 = i * (1.0 / SPLIT);
+                    let u1 = (i + 1) * (1.0 / SPLIT);
+                    let v0 = j * (1.0 / SPLIT);
+                    let v1 = (j + 1) * (1.0 / SPLIT);
+                    cylinderTexCoord.push(
+                        u0, v0, u1, v0, u0, v1, u1, v1
+                    );
+                    cylinderIndex.push(
+                        index, index + 1, index + 2,
+                        index + 2, index + 1, index + 3
+                    );
+                    index += 4;
+                }
+            }
+        }
+        let cylinderVBO = [
+            gl3.createVbo(cylinderPosition),
+            gl3.createVbo(cylinderTexCoord)
+        ];
+        let cylinderIBO = gl3.createIbo(cylinderIndex);
+
         // matrix
         let mMatrix      = mat4.identity(mat4.create());
         let vMatrix      = mat4.identity(mat4.create());
@@ -142,6 +188,23 @@
         let centerPoint    = [0.0, 0.0, 0.0];
         let upDirection    = [0.0, 1.0, 0.0];
 
+        // render to framebuffer ==========================================
+        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer.framebuffer);
+        gl3.sceneClear([0.1, 0.1, 0.1, 1.0], 1.0);
+        graphPrg.useProgram();
+        graphPrg.setAttribute(planeVBO, planeIBO);
+
+        let size = RESOLUTION / SPLIT;
+        let radTime = Math.PI / (SPLIT * SPLIT);
+        for(let i = 0; i < SPLIT; ++i){
+            for(let j = 0; j < SPLIT; ++j){
+                let k = i * SPLIT + j;
+                gl3.sceneView(size * i, size * j, size, size);
+                graphPrg.pushShader([[size, size], radTime * k]);
+                gl3.drawElements(gl.TRIANGLES, planeIndex.length);
+            }
+        }
+
         // rendering
         render();
         function render(){
@@ -169,26 +232,9 @@
                 vMatrix, pMatrix, vpMatrix
             );
 
-            // render to framebuffer ==========================================
-            gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer.framebuffer);
-            gl3.sceneClear([0.1, 0.1, 0.1, 1.0], 1.0);
-            graphPrg.useProgram();
-            graphPrg.setAttribute(planeVBO, planeIBO);
-
-            let size = RESOLUTION / SPLIT;
-            let radTime = Math.PI / (SPLIT * SPLIT);
-            for(let i = 0; i < SPLIT; ++i){
-                for(let j = 0; j < SPLIT; ++j){
-                    let k = i * SPLIT + j;
-                    gl3.sceneView(size * i, size * j, size, size);
-                    graphPrg.pushShader([[size, size], radTime * k]);
-                    gl3.drawElements(gl.TRIANGLES, planeIndex.length);
-                }
-            }
-
             // program
             scenePrg.useProgram();
-            scenePrg.setAttribute(planeVBO, planeIBO);
+            scenePrg.setAttribute(cylinderVBO, cylinderIBO);
 
             // render to canvas
             gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -200,7 +246,7 @@
             mat4.rotate(mMatrix, nowTime, [0.0, 0.1, 0.0], mMatrix);
             mat4.multiply(vpMatrix, mMatrix, mvpMatrix);
             scenePrg.pushShader([mvpMatrix, 0]);
-            gl3.drawElements(gl.TRIANGLES, planeIndex.length);
+            gl3.drawElements(gl.TRIANGLES, cylinderIndex.length);
 
             // final
             gl.flush();
