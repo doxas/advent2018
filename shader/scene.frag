@@ -2,11 +2,9 @@
  * paste shader
  * ---------------------------------------------------------------------------- */
 precision mediump float;
-uniform sampler2D graphTexture;
-
+uniform sampler2D texture;
 varying vec2 vTexCoord;
 
 void main(){
-    // graph
-    gl_FragColor = texture2D(graphTexture, vTexCoord);
+    gl_FragColor = texture2D(texture, vTexCoord);
 }

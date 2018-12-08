@@ -68,8 +68,8 @@
             'shader/scene.frag',
             ['position', 'texCoord'],
             [3, 2],
-            ['mMatrix', 'mvpMatrix', 'texture'],
-            ['matrix4fv', 'matrix4fv', '1i'],
+            ['mvpMatrix', 'texture'],
+            ['matrix4fv', '1i'],
             shaderLoadCheck
         );
         // graph texture program
@@ -149,7 +149,7 @@
             nowTime /= 1000;
 
             // animation
-            // if(run){requestAnimationFrame(render);}
+            if(run){requestAnimationFrame(render);}
 
             // canvas
             canvasWidth   = window.innerWidth;
@@ -170,7 +170,7 @@
             );
 
             // render to framebuffer ==========================================
-            // gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer.framebuffer);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer.framebuffer);
             gl3.sceneClear([0.1, 0.1, 0.1, 1.0], 1.0);
             graphPrg.useProgram();
             graphPrg.setAttribute(planeVBO, planeIBO);
@@ -186,11 +186,9 @@
                 }
             }
 
-            /*
             // program
             scenePrg.useProgram();
-            scenePrg.setAttribute(icosaVBO, icosaIBO);
-            // scenePrg.setAttribute(torusVBO, torusIBO);
+            scenePrg.setAttribute(planeVBO, planeIBO);
 
             // render to canvas
             gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -199,22 +197,10 @@
 
             // model and draw
             mat4.identity(mMatrix);
-            mat4.translate(mMatrix, [0.0, 0.0, Math.sin(nowTime) * 0.25], mMatrix);
-            mat4.rotate(mMatrix, nowTime, [1.0, 1.0, 1.0], mMatrix);
+            mat4.rotate(mMatrix, nowTime, [0.0, 0.1, 0.0], mMatrix);
             mat4.multiply(vpMatrix, mMatrix, mvpMatrix);
-            mat4.inverse(mMatrix, invMatrix);
-            mat4.transpose(invMatrix, normalMatrix);
-            scenePrg.pushShader([
-                mMatrix,
-                mvpMatrix,
-                normalMatrix,
-                cameraPosition,
-                lightPosition,
-                ambientColor,
-                targetTexture
-            ]);
-            gl3.drawElements(gl.TRIANGLES, icosaData.index.length);
-            */
+            scenePrg.pushShader([mvpMatrix, 0]);
+            gl3.drawElements(gl.TRIANGLES, planeIndex.length);
 
             // final
             gl.flush();
