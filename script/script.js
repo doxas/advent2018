@@ -1,7 +1,7 @@
 
 (() => {
     // variable ===============================================================
-    let gl, run, mat4, count, nowTime, framebuffer;
+    let gl, run, mat4, qtn, camera, nowTime, framebuffer;
     let canvas, canvasWidth, canvasHeight;
     let speed = Math.PI * 0.5;
 
@@ -32,26 +32,27 @@
         canvas        = gl3.canvas;
         gl            = gl3.gl;
         mat4          = gl3.Math.Mat4;
+        qtn           = gl3.Math.Qtn;
         canvasWidth   = window.innerWidth;
         canvasHeight  = window.innerHeight;
         canvas.width  = canvasWidth;
         canvas.height = canvasHeight;
+        camera        = new InteractionCamera();
+        camera.update();
+        canvas.addEventListener('mousedown', camera.startEvent, false);
+        canvas.addEventListener('mousemove', camera.moveEvent, false);
+        canvas.addEventListener('mouseup', camera.endEvent, false);
+        canvas.addEventListener('wheel', camera.wheelEvent, false);
 
         // event attach
         window.addEventListener('keydown', (eve) => {
             if(eve.keyCode === 27){run = false;}
         }, false);
         window.addEventListener('resize', () => {
-            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-            gl.activeTexture(gl.TEXTURE1);
-            gl.bindTexture(gl.TEXTURE_2D, null);
-            gl3.deleteFramebuffer(framebuffer);
             canvasWidth = window.innerWidth;
             canvasHeight = window.innerHeight;
             canvas.width = canvasWidth;
             canvas.height = canvasHeight;
-            framebuffer = gl3.createFramebuffer(canvasWidth, canvasHeight, 1);
-            gl.bindTexture(gl.TEXTURE_2D, framebuffer.texture);
         }, false);
 
         // element
@@ -168,6 +169,7 @@
         let pMatrix      = mat4.identity(mat4.create());
         let vpMatrix     = mat4.identity(mat4.create());
         let mvpMatrix    = mat4.identity(mat4.create());
+        let qtnMatrix    = mat4.identity(mat4.create());
 
         // framebuffer
         framebuffer = gl3.createFramebuffer(RESOLUTION, RESOLUTION, 0);
@@ -224,16 +226,20 @@
             canvas.height = canvasHeight;
 
             // view x proj
+            camera.update();
             mat4.vpFromCameraProperty(
                 cameraPosition,
                 centerPoint,
                 upDirection,
-                60,
+                60 * camera.scale,
                 canvasWidth / canvasHeight,
                 0.1,
                 10.0,
                 vMatrix, pMatrix, vpMatrix
             );
+            mat4.identity(qtnMatrix);
+            qtn.toMatIV(camera.qtn, qtnMatrix);
+            mat4.multiply(vpMatrix, qtnMatrix, vpMatrix);
 
             // program
             scenePrg.useProgram();
@@ -254,6 +260,82 @@
 
             // final
             gl.flush();
+        }
+    }
+
+    class InteractionCamera {
+        /**
+         * @constructor
+         */
+        constructor(){
+            this.qtn               = qtn.identity(qtn.create());
+            this.dragging          = false;
+            this.prevMouse         = [0, 0];
+            this.rotationScale     = Math.min(window.innerWidth, window.innerHeight);
+            this.rotation          = 0.0;
+            this.rotateAxis        = [0.0, 0.0, 0.0];
+            this.rotatePower       = 1.5;
+            this.rotateAttenuation = 0.9;
+            this.scale             = 1.0;
+            this.scalePower        = 0.0;
+            this.scaleAttenuation  = 0.8;
+            this.scaleMin          = 0.75;
+            this.scaleMax          = 1.25;
+            this.startEvent        = this.startEvent.bind(this);
+            this.moveEvent         = this.moveEvent.bind(this);
+            this.endEvent          = this.endEvent.bind(this);
+            this.wheelEvent        = this.wheelEvent.bind(this);
+        }
+        /**
+         * mouse down event
+         * @param {Event} eve - event object
+         */
+        startEvent(eve){
+            this.dragging = true;
+            this.prevMouse = [eve.clientX, eve.clientY];
+        }
+        /**
+         * mouse move event
+         * @param {Event} eve - event object
+         */
+        moveEvent(eve){
+            if(this.dragging !== true){return;}
+            let x = this.prevMouse[0] - eve.clientX;
+            let y = this.prevMouse[1] - eve.clientY;
+            this.rotation = Math.sqrt(x * x + y * y) / this.rotationScale * this.rotatePower;
+            this.rotateAxis[0] = y;
+            this.rotateAxis[1] = 0;
+            this.prevMouse = [eve.clientX, eve.clientY];
+        }
+        /**
+         * mouse up event
+         */
+        endEvent(){
+            this.dragging = false;
+        }
+        /**
+         * wheel event
+         * @param {Event} eve - event object
+         */
+        wheelEvent(eve){
+            let w = eve.wheelDelta;
+            if(w > 0){
+                this.scalePower = -0.02;
+            }else if(w < 0){
+                this.scalePower =  0.02;
+            }
+        }
+        /**
+         * quaternion update
+         */
+        update(){
+            this.scalePower *= this.scaleAttenuation;
+            this.scale = Math.max(this.scaleMin, Math.min(this.scaleMax, this.scale + this.scalePower));
+            if(this.rotation === 0.0){return;}
+            this.rotation *= this.rotateAttenuation;
+            let q = qtn.identity(qtn.create());
+            qtn.rotate(this.rotation, this.rotateAxis, q);
+            qtn.multiply(this.qtn, q, this.qtn);
         }
     }
 })();
